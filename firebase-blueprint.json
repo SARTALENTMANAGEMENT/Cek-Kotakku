@@ -1,0 +1,101 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Akun pengguna sistem CEK KOTAKKU (admin/user)",
+      "type": "object",
+      "properties": {
+        "nip": { "type": "string" },
+        "passwordHash": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nip", "passwordHash", "role"]
+    },
+    "Pegawai": {
+      "title": "Pegawai",
+      "description": "Data master pegawai dan skor pemetaan 9-box talent",
+      "type": "object",
+      "properties": {
+        "nip": { "type": "string" },
+        "nama": { "type": "string" },
+        "unitOrganisasi": { "type": "string" },
+        "jabatan": { "type": "string" },
+        "nilaiX": { "type": "number" },
+        "nilaiY": { "type": "number" },
+        "box": { "type": "number" },
+        "komponenX": { "type": "object" },
+        "komponenY": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nip", "nama", "unitOrganisasi", "jabatan", "nilaiX", "nilaiY", "box"]
+    },
+    "CareerPathPeriode": {
+      "title": "CareerPathPeriode",
+      "description": "Periode pengisian kuesioner career path",
+      "type": "object",
+      "properties": {
+        "periodeId": { "type": "string" },
+        "namaPeriode": { "type": "string" },
+        "status": { "type": "string", "enum": ["Aktif", "Nonaktif", "Selesai"] },
+        "targetType": { "type": "string", "enum": ["Semua", "Tertentu"] },
+        "targetNip": { "type": "array" },
+        "dibuatPada": { "type": "string", "format": "date-time" },
+        "diperbaruiPada": { "type": "string", "format": "date-time" }
+      },
+      "required": ["periodeId", "namaPeriode", "status", "targetType"]
+    },
+    "CareerPathPertanyaan": {
+      "title": "CareerPathPertanyaan",
+      "description": "Pertanyaan kuesioner pada periode tertentu",
+      "type": "object",
+      "properties": {
+        "urutan": { "type": "number" },
+        "teksPertanyaan": { "type": "string" },
+        "tipeSoal": { "type": "string", "enum": ["Pilihan Ganda", "Checkbox", "Dropdown", "Skala", "Teks Bebas"] },
+        "opsi": { "type": "string" },
+        "wajib": { "type": "boolean" }
+      },
+      "required": ["urutan", "teksPertanyaan", "tipeSoal", "wajib"]
+    },
+    "CareerPathJawaban": {
+      "title": "CareerPathJawaban",
+      "description": "Jawaban kuesioner career path pegawai",
+      "type": "object",
+      "properties": {
+        "jawabanId": { "type": "string" },
+        "periodeId": { "type": "string" },
+        "nip": { "type": "string" },
+        "nama": { "type": "string" },
+        "jawaban": { "type": "object" },
+        "status": { "type": "string", "enum": ["Sudah Mengisi", "Belum Mengisi"] },
+        "diisiPada": { "type": "string", "format": "date-time" },
+        "diperbaruiPada": { "type": "string", "format": "date-time" }
+      },
+      "required": ["jawabanId", "periodeId", "nip", "nama", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{nip}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Koleksi data user autentikasi"
+    },
+    "/pegawai/{nip}": {
+      "schema": { "$ref": "#/entities/Pegawai" },
+      "description": "Koleksi data master talent pegawai"
+    },
+    "/careerPathPeriode/{periodeId}": {
+      "schema": { "$ref": "#/entities/CareerPathPeriode" },
+      "description": "Koleksi periode kuesioner career path"
+    },
+    "/careerPathPeriode/{periodeId}/pertanyaan/{pertanyaanId}": {
+      "schema": { "$ref": "#/entities/CareerPathPertanyaan" },
+      "description": "Sub-koleksi pertanyaan kuesioner"
+    },
+    "/careerPathJawaban/{jawabanId}": {
+      "schema": { "$ref": "#/entities/CareerPathJawaban" },
+      "description": "Koleksi jawaban kuesioner career path"
+    }
+  }
+}

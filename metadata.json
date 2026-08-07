@@ -1,0 +1,6 @@
+{
+  "name": "CEK KOTAKKU - Aplikasi Manajemen Talenta Pegawai",
+  "description": "Aplikasi manajemen dan pemetaan talenta pegawai berbasis 9-box matrix, monitoring career path, dan sinkronisasi data talenta.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Zero-Trust: Tolak seluruh akses direct dari client SDK.
+    // Seluruh operasi data berjalan aman di server-side via Firebase Admin SDK di Route Handler.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
