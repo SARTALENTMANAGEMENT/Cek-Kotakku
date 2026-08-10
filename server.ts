@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import cookieParser from 'cookie-parser';
-import { createServer as createViteServer } from 'vite';
 import {
   getUser,
   saveUser,
@@ -21,11 +20,12 @@ import {
 import { comparePassword, hashPassword, signJWT, verifyJWT } from './src/lib/auth';
 import { JWTPayload, Pegawai, CareerPathPeriode, CareerPathPertanyaan, CareerPathJawaban } from './src/lib/types';
 
-export const app = express();
+async function createApp() {
+  const app = express();
 
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
-app.use(cookieParser());
+  app.use(express.json({ limit: '20mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+  app.use(cookieParser());
 
   // --- Auth Middleware Helper ---
   async function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -427,30 +427,52 @@ app.use(cookieParser());
     }
   });
 
-  // --- VITE MIDDLEWARE / STATIC SERVING & LISTEN (Non-Vercel environments) ---
-  if (!process.env.VERCEL) {
+  // --- VITE MIDDLEWARE / STATIC SERVING ---
+  // Di Vercel, frontend sudah di-deploy terpisah sebagai static output (hasil `vite build`),
+  // jadi function ini cukup menangani route /api/* saja dan TIDAK perlu menyalakan
+  // Vite dev middleware maupun static file serving di sini.
+  const isVercel = !!process.env.VERCEL;
+
+  if (!isVercel) {
     if (process.env.NODE_ENV !== 'production') {
-      createViteServer({
+      // Dynamic import: 'vite' berat (esbuild/rollup) dan hanya dibutuhkan untuk
+      // dev server lokal, jadi jangan pernah di-load secara statis di top-level
+      // module (itu akan ikut ter-load di Vercel dan bisa bikin function crash).
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: 'spa',
-      }).then((vite) => {
-        app.use(vite.middlewares);
-        const PORT = 3000;
-        app.listen(PORT, '0.0.0.0', () => {
-          console.log(`Server CEK KOTAKKU running on http://0.0.0.0:${PORT}`);
-        });
       });
+      app.use(vite.middlewares);
     } else {
       const distPath = path.join(process.cwd(), 'dist');
       app.use(express.static(distPath));
       app.get('*', (req, res) => {
         res.sendFile(path.join(distPath, 'index.html'));
       });
-      const PORT = 3000;
-      app.listen(PORT, '0.0.0.0', () => {
-        console.log(`Server CEK KOTAKKU running on http://0.0.0.0:${PORT}`);
-      });
     }
   }
 
-export default app;
+  return app;
+}
+
+// Cache promise-nya supaya Express app tidak dibuat ulang di setiap invocation
+// serverless (penting untuk performa & supaya route hanya didaftarkan sekali).
+let appPromise: ReturnType<typeof createApp> | null = null;
+export function getApp() {
+  if (!appPromise) {
+    appPromise = createApp();
+  }
+  return appPromise;
+}
+
+// Kalau dijalankan sebagai server Node.js tradisional (bukan di Vercel),
+// langsung buat app-nya dan dengarkan di port 3000 seperti biasa.
+if (!process.env.VERCEL) {
+  const PORT = 3000;
+  getApp().then((app) => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server CEK KOTAKKU running on http://0.0.0.0:${PORT}`);
+    });
+  });
+}
