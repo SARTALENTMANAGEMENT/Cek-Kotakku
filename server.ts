@@ -21,9 +21,8 @@ import {
 import { comparePassword, hashPassword, signJWT, verifyJWT } from './src/lib/auth';
 import { JWTPayload, Pegawai, CareerPathPeriode, CareerPathPertanyaan, CareerPathJawaban } from './src/lib/types';
 
-async function startServer() {
+async function createApp() {
   const app = express();
-  const PORT = 3000;
 
   app.use(express.json({ limit: '20mb' }));
   app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -430,23 +429,47 @@ async function startServer() {
   });
 
   // --- VITE MIDDLEWARE / STATIC SERVING ---
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+  // Di Vercel, frontend sudah di-deploy terpisah sebagai static output (hasil `vite build`),
+  // jadi function ini cukup menangani route /api/* saja dan TIDAK perlu menyalakan
+  // Vite dev middleware maupun static file serving di sini.
+  const isVercel = !!process.env.VERCEL;
+
+  if (!isVercel) {
+    if (process.env.NODE_ENV !== 'production') {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server CEK KOTAKKU running on http://0.0.0.0:${PORT}`);
-  });
+  return app;
 }
 
-startServer();
+// Cache promise-nya supaya Express app tidak dibuat ulang di setiap invocation
+// serverless (penting untuk performa & supaya route hanya didaftarkan sekali).
+let appPromise: ReturnType<typeof createApp> | null = null;
+export function getApp() {
+  if (!appPromise) {
+    appPromise = createApp();
+  }
+  return appPromise;
+}
+
+// Kalau dijalankan sebagai server Node.js tradisional (bukan di Vercel),
+// langsung buat app-nya dan dengarkan di port 3000 seperti biasa.
+if (!process.env.VERCEL) {
+  const PORT = 3000;
+  getApp().then((app) => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server CEK KOTAKKU running on http://0.0.0.0:${PORT}`);
+    });
+  });
+}
