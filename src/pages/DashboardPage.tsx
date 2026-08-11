@@ -1,210 +1,160 @@
 import React from 'react';
-import { Pegawai, JWTPayload } from '../lib/types';
 import { NineBoxGrid } from '../components/dashboard/NineBoxGrid';
 import { RadarChartComponent } from '../components/dashboard/RadarChartComponent';
-import { generateNarrativeRecommendation } from '../lib/recommendations';
-import { User, Award, TrendingUp, Sparkles, Shield, Building2 } from 'lucide-react';
+import { StrengthBar } from '../components/ui/StrengthBar';
+import { getBoxInfo } from '../lib/recommendations';
+import { Pegawai, JWTPayload } from '../lib/types';
+import { Award, Compass, CheckCircle2, AlertTriangle, TrendingUp } from 'lucide-react';
 
 interface DashboardPageProps {
-  pegawai: Pegawai | null;
   user: JWTPayload | null;
+  pegawai: Pegawai | null;
+  onNavigate: (path: string) => void;
 }
 
-export const DashboardPage: React.FC<DashboardPageProps> = ({ pegawai, user }) => {
+export const DashboardPage: React.FC<DashboardPageProps> = ({ pegawai, onNavigate }) => {
   if (!pegawai) {
     return (
-      <div className="p-8 text-center bg-white rounded-3xl border border-slate-200 shadow-sm">
-        <Shield className="w-12 h-12 text-indigo-500 mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-slate-800">Sesi Administrator Active</h3>
-        <p className="text-sm text-slate-500 max-w-md mx-auto mt-1">
-          Anda berada dalam sesi Administrator. Gunakan menu <strong>Cari Talenta Pegawai</strong> untuk meninjau hasil pemetaan 9-box individual.
+      <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-4">
+        <div className="w-12 h-12 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-center mx-auto text-amber-600">
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <h3 className="font-extrabold text-base text-slate-800">
+          Data Pemetaan Talenta Belum Tersedia
+        </h3>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          Akun Administrator Anda saat ini belum memiliki data skor 9-box individual, atau data
+          skor pegawai Anda belum diunggah oleh Tim Admin HR.
         </p>
       </div>
     );
   }
 
-  const recommendationText = generateNarrativeRecommendation(pegawai.box);
+  const boxInfo = getBoxInfo(pegawai.box);
+
+  const compX = pegawai.komponenX || {
+    'Kepemimpinan & Visi': pegawai.nilaiX || 75,
+     Inovasi: pegawai.nilaiX || 70,
+    'Manajerial Tim': pegawai.nilaiX || 80,
+  };
+
+  const compY = pegawai.komponenY || {
+    'Capaian Kinerja SKP': pegawai.nilaiY || 85,
+     Disiplin: pegawai.nilaiY || 90,
+    'Kemitraan & Tim': pegawai.nilaiY || 80,
+  };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-10">
-      {/* Welcome Banner Card */}
-      <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-r from-indigo-600 via-violet-600 to-pink-600 text-white shadow-xl shadow-indigo-600/15 relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 skew-x-12 pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold backdrop-blur-md">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Portal Hasil Pemetaan Talenta Pegawai</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight">
-              Selamat Datang, {pegawai.nama}
-            </h1>
-            <p className="text-indigo-100 text-xs md:text-sm font-medium max-w-2xl leading-relaxed">
-              Berikut adalah hasil evaluasi dan pemetaan potensi serta kinerja Anda berdasarkan kriteria matriks 9-Box Talenta Nasional.
-            </p>
+    <div className="space-y-6">
+      {/* Overview Card */}
+      <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-slate-800">
+        <div className="space-y-2 relative z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold">
+            <Award className="w-3.5 h-3.5" />
+            <span>Posisi Talent Box #{pegawai.box}</span>
           </div>
+          <h2 className="text-xl md:text-2xl font-black tracking-tight">{pegawai.nama}</h2>
+          <p className="text-xs text-slate-300 font-medium">
+            {pegawai.jabatan} • <span className="text-slate-400">{pegawai.unitOrganisasi}</span>
+          </p>
+        </div>
 
-          <div className="flex items-center gap-3 bg-white/15 p-4 rounded-2xl backdrop-blur-md border border-white/20 shrink-0">
-            <div className="text-center px-3 border-r border-white/20">
-              <p className="text-[10px] font-extrabold uppercase text-indigo-200">Sumbu X (Potensi)</p>
-              <p className="text-2xl font-black text-white">{pegawai.nilaiX.toFixed(1)}</p>
-            </div>
-            <div className="text-center px-3 border-r border-white/20">
-              <p className="text-[10px] font-extrabold uppercase text-indigo-200">Sumbu Y (Kinerja)</p>
-              <p className="text-2xl font-black text-white">{pegawai.nilaiY.toFixed(1)}</p>
-            </div>
-            <div className="text-center px-3">
-              <p className="text-[10px] font-extrabold uppercase text-indigo-200">Kotak Matrix</p>
-              <p className="text-2xl font-black text-amber-300">BOX {pegawai.box}</p>
-            </div>
+        <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 shrink-0">
+          <div className="text-center px-2">
+            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Sumbu X (Potensi)</p>
+            <p className="text-2xl font-black text-indigo-400">{pegawai.nilaiX}</p>
+          </div>
+          <div className="w-px h-10 bg-white/20" />
+          <div className="text-center px-2">
+            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Sumbu Y (Kinerja)</p>
+            <p className="text-2xl font-black text-pink-400">{pegawai.nilaiY}</p>
           </div>
         </div>
       </div>
 
-      {/* Pegawai Metadata Identity Card */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600">
-            <User className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase">NIP Pegawai</p>
-            <p className="text-sm font-extrabold text-slate-800">{pegawai.nip}</p>
-          </div>
+      {/* Grid Matrix and Radar Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-7">
+          <NineBoxGrid activePegawai={pegawai} />
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-violet-50 text-violet-600">
-            <Award className="w-5 h-5" />
+        <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-900">Komposisi Skor Potensi & Kinerja</h3>
+              <p className="text-[11px] font-medium text-slate-500">
+                Visualisasi spider radar chart komponen penilai
+              </p>
+            </div>
+            <TrendingUp className="w-4 h-4 text-indigo-600" />
           </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase">Jabatan Saat Ini</p>
-            <p className="text-sm font-extrabold text-slate-800 truncate max-w-[180px]" title={pegawai.jabatan}>
-              {pegawai.jabatan}
+
+          <RadarChartComponent dataX={compX as Record<string, number>} dataY={compY as Record<string, number>} />
+
+          <div className="pt-2 space-y-3">
+            <p className="text-xs font-black uppercase text-slate-400 tracking-wider">
+              Rincian Komponen Potensi:
             </p>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-pink-50 text-pink-600">
-            <Building2 className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase">Unit Organisasi</p>
-            <p className="text-sm font-extrabold text-slate-800 truncate max-w-[180px]" title={pegawai.unitOrganisasi}>
-              {pegawai.unitOrganisasi}
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase">Kategori Talenta</p>
-            <p className="text-sm font-extrabold text-emerald-700">BOX {pegawai.box}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Interactive 9-Box Matrix Grid */}
-      <NineBoxGrid currentBox={pegawai.box} />
-
-      {/* Recharts Radar Chart */}
-      <RadarChartComponent komponenX={pegawai.komponenX} komponenY={pegawai.komponenY} />
-
-      {/* Detailed Components Score Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Potensi Component List */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-indigo-600" />
-              Rincian Komponen Sumbu X (Potensi)
-            </h3>
-            <span className="text-xs font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
-              Skor Total: {pegawai.nilaiX.toFixed(1)}
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {[
-              { label: 'Penilaian Kompetensi', val: pegawai.komponenX?.kompetensi || 0 },
-              { label: 'Pengembangan Kompetensi', val: pegawai.komponenX?.pengembangan || 0 },
-              { label: 'Pengalaman Jabatan', val: pegawai.komponenX?.pengalaman || 0 },
-              { label: 'Penilaian Potensi', val: pegawai.komponenX?.potensi || 0 },
-              { label: 'Tingkat Pendidikan Formal', val: pegawai.komponenX?.pendidikan || 0 },
-              { label: 'Kesesuaian Bidang Ilmu', val: pegawai.komponenX?.kesesuaian || 0 },
-              { label: 'Verifikasi Rekam Jejak Disiplin', val: pegawai.komponenX?.disiplin || 0 },
-            ].map((item, i) => (
-              <div key={i} className="space-y-1">
-                <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span>{item.label}</span>
-                  <span className="text-indigo-600">{item.val} / 100</span>
-                </div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, Math.max(0, item.val))}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Kinerja Component List */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-pink-500" />
-              Rincian Komponen Sumbu Y (Kinerja)
-            </h3>
-            <span className="text-xs font-extrabold text-pink-600 bg-pink-50 px-2.5 py-1 rounded-full">
-              Skor Total: {pegawai.nilaiY.toFixed(1)}
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {[
-              { label: 'Penilaian Kinerja Utama', val: pegawai.komponenY?.kinerja || 0 },
-              { label: 'Penghargaan', val: pegawai.komponenY?.penghargaan || 0 },
-              { label: 'Penugasan dalam Tim Kerja', val: pegawai.komponenY?.timKerja || 0 },
-              { label: 'Umpan Balik Kinerja 360°', val: pegawai.komponenY?.umpanBalik || 0 },
-            ].map((item, i) => (
-              <div key={i} className="space-y-1">
-                <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span>{item.label}</span>
-                  <span className="text-pink-600">{item.val} / 100</span>
-                </div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-violet-500 to-pink-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, Math.max(0, item.val))}%` }}
-                  />
-                </div>
-              </div>
+            {Object.entries(compX).map(([k, v]) => (
+              <StrengthBar key={k} label={k} score={Number(v)} />
             ))}
           </div>
         </div>
       </div>
 
-      {/* Strategic Career Recommendation Box */}
-      <div className="bg-gradient-to-br from-slate-900 to-slate-950 p-6 md:p-8 rounded-3xl border border-slate-800 text-white shadow-xl space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-pink-500 text-white">
-            <Sparkles className="w-5 h-5" />
-          </div>
+      {/* Box Recommendations Card */}
+      <div className={`p-6 rounded-3xl border shadow-xs space-y-6 ${boxInfo.bgLight} ${boxInfo.borderColor}`}>
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-base font-extrabold text-white">Rekomendasi Karir Strategis</h3>
-            <p className="text-xs text-slate-400">Rekomendasi tindak lanjut berdasarkan hasil pemetaan Box {pegawai.box}</p>
+            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${boxInfo.badgeColor}`}>
+              {boxInfo.category}
+            </span>
+            <h3 className="text-lg font-black text-slate-900 mt-2">{boxInfo.label}</h3>
+            <p className="text-xs font-semibold text-slate-600 mt-1">{boxInfo.description}</p>
           </div>
         </div>
 
-        <p className="text-sm font-medium leading-relaxed text-slate-200 pt-2 border-t border-slate-800/80">
-          {recommendationText}
-        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          <div className="bg-white/80 backdrop-blur-xs p-5 rounded-2xl border border-slate-200/80 space-y-3">
+            <h4 className="text-xs font-black uppercase tracking-wider text-indigo-900 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+              <span>Rekomendasi Program Pengembangan</span>
+            </h4>
+            <ul className="space-y-2">
+              {boxInfo.rekomendasiPengembangan.map((item, idx) => (
+                <li key={idx} className="text-xs font-semibold text-slate-700 flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0 mt-1.5" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-xs p-5 rounded-2xl border border-slate-200/80 space-y-3">
+            <h4 className="text-xs font-black uppercase tracking-wider text-pink-900 flex items-center gap-2">
+              <Compass className="w-4 h-4 text-pink-600" />
+              <span>Rekomendasi Karir & Suksesi</span>
+            </h4>
+            <ul className="space-y-2">
+              {boxInfo.rekomendasiKarir.map((item, idx) => (
+                <li key={idx} className="text-xs font-semibold text-slate-700 flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0 mt-1.5" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <button
+            onClick={() => onNavigate('/career-path')}
+            className="px-5 py-3 rounded-2xl font-extrabold text-xs text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/20 flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <Compass className="w-4 h-4" />
+            <span>Isi Kuesioner Career Path Sekarang</span>
+          </button>
+        </div>
       </div>
     </div>
   );

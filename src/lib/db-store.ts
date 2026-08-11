@@ -1,479 +1,330 @@
-import { getAdminFirestore } from './firebase-admin.js';
+import { getAdminFirestore } from './firebase-admin';
+import { hashPassword } from './auth';
 import {
   UserAccount,
   Pegawai,
   CareerPathPeriode,
   CareerPathPertanyaan,
   CareerPathJawaban,
-} from './types.js';
-import { hashPassword } from './auth.js';
+} from './types';
 
-// Initial seed data for memory store fallback
-let memoryUsers: Record<string, UserAccount> = {};
-let memoryPegawai: Record<string, Pegawai> = {};
-let memoryPeriodes: Record<string, CareerPathPeriode> = {};
-let memoryQuestions: Record<string, CareerPathPertanyaan[]> = {};
-let memoryAnswers: Record<string, CareerPathJawaban> = {}; // key: `${periodeId}_${nip}`
+// In-Memory Storage Fallback
+const memoryUsers = new Map<string, UserAccount>();
+const memoryPegawai = new Map<string, Pegawai>();
+const memoryPeriodes = new Map<string, CareerPathPeriode>();
+const memoryPertanyaan = new Map<string, CareerPathPertanyaan[]>();
+const memoryJawaban = new Map<string, CareerPathJawaban>();
 
-let isSeeded = false;
+let isInitialized = false;
 
-async function initSeedData() {
-  if (isSeeded) return;
-  isSeeded = true;
+async function seedInitialData() {
+  if (isInitialized) return;
+  isInitialized = true;
 
   const defaultAdminHash = await hashPassword('admin123');
-  memoryUsers['admin'] = {
+  const defaultUserHash = await hashPassword('user123');
+
+  // Seed default admin
+  memoryUsers.set('admin', {
     nip: 'admin',
     passwordHash: defaultAdminHash,
     role: 'admin',
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  });
 
-  const sampleEmployees: Pegawai[] = [
+  // Seed default sample pegawai
+  const samplePegawai: Pegawai[] = [
     {
       nip: '199001012015011001',
-      nama: 'Ahmad Fauzi, S.T.',
-      unitOrganisasi: 'Direktorat SDM & Organisasi',
-      jabatan: 'Analis Talenta Ahli Muda',
-      nilaiX: 88.5,
-      nilaiY: 92.0,
-      box: 3,
-      komponenX: {
-        kompetensi: 90,
-        pengembangan: 85,
-        pengalaman: 88,
-        potensi: 92,
-        pendidikan: 85,
-        kesesuaian: 90,
-        disiplin: 89,
-      },
-      komponenY: {
-        kinerja: 94,
-        penghargaan: 90,
-        timKerja: 91,
-        umpanBalik: 93,
-      },
-      updatedAt: new Date().toISOString(),
+      nama: 'Budi Santoso, S.Kom',
+      unitOrganisasi: 'Direktorat Sistem Informasi',
+      jabatan: 'Analisis Sistem Informasi Ahli Muda',
+      nilaiX: 85,
+      nilaiY: 92,
+      box: 9,
+      komponenX: { Kepemimpinan: 85, Inovasi: 88, Manajerial: 82 },
+      komponenY: { 'Capaian SKP': 95, Disiplin: 90, Kerjasama: 91 },
     },
     {
-      nip: '198805122012032002',
-      nama: 'Siti Rahmawati, M.Si.',
-      unitOrganisasi: 'Direktorat Keuangan',
-      jabatan: 'Kepala Subbagian Perencanaan',
-      nilaiX: 85.0,
-      nilaiY: 78.5,
-      box: 2,
-      komponenX: {
-        kompetensi: 86,
-        pengembangan: 84,
-        pengalaman: 82,
-        potensi: 88,
-        pendidikan: 90,
-        kesesuaian: 85,
-        disiplin: 80,
-      },
-      komponenY: {
-        kinerja: 78,
-        penghargaan: 75,
-        timKerja: 80,
-        umpanBalik: 81,
-      },
-      updatedAt: new Date().toISOString(),
+      nip: '199203152017021002',
+      nama: 'Siti Aminah, M.T',
+      unitOrganisasi: 'Direktorat Pengelolaan Data',
+      jabatan: 'Pranata Komputer Ahli Pertama',
+      nilaiX: 78,
+      nilaiY: 88,
+      box: 8,
+      komponenX: { Kepemimpinan: 75, Inovasi: 82 },
+      komponenY: { 'Capaian SKP': 90, Disiplin: 86 },
     },
     {
-      nip: '199203152018021003',
-      nama: 'Budi Santoso, S.Kom.',
-      unitOrganisasi: 'Pusat Data & Informasi',
-      jabatan: 'Pengembang Sistem Informasi',
-      nilaiX: 72.0,
-      nilaiY: 91.0,
-      box: 6,
-      komponenX: {
-        kompetensi: 75,
-        pengembangan: 70,
-        pengalaman: 68,
-        potensi: 74,
-        pendidikan: 72,
-        kesesuaian: 75,
-        disiplin: 70,
-      },
-      komponenY: {
-        kinerja: 92,
-        penghargaan: 88,
-        timKerja: 90,
-        umpanBalik: 94,
-      },
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      nip: '199507202020012004',
-      nama: 'Dewi Lestari, S.E.',
-      unitOrganisasi: 'Direktorat Keuangan',
-      jabatan: 'Pengelola Keuangan',
-      nilaiX: 70.0,
-      nilaiY: 72.5,
+      nip: '198811202012012003',
+      nama: 'Ahmad Dahlan, S.E',
+      unitOrganisasi: 'Biro Keuangan dan Perencanaan',
+      jabatan: 'Penata Laporan Keuangan',
+      nilaiX: 62,
+      nilaiY: 74,
       box: 5,
-      komponenX: {
-        kompetensi: 72,
-        pengembangan: 68,
-        pengalaman: 70,
-        potensi: 71,
-        pendidikan: 70,
-        kesesuaian: 69,
-        disiplin: 69,
-      },
-      komponenY: {
-        kinerja: 73,
-        penghargaan: 70,
-        timKerja: 74,
-        umpanBalik: 73,
-      },
-      updatedAt: new Date().toISOString(),
+      komponenX: { Kepemimpinan: 60, Inovasi: 64 },
+      komponenY: { 'Capaian SKP': 76, Disiplin: 72 },
     },
     {
-      nip: '199104102016021005',
-      nama: 'Rian Pratama, S.H.',
-      unitOrganisasi: 'Biro Hukum & Layanan Informasi',
-      jabatan: 'Analis Hukum Pertanahan',
-      nilaiX: 86.0,
-      nilaiY: 65.0,
-      box: 1,
-      komponenX: {
-        kompetensi: 88,
-        pengembangan: 85,
-        pengalaman: 82,
-        potensi: 89,
-        pendidikan: 84,
-        kesesuaian: 87,
-        disiplin: 87,
-      },
-      komponenY: {
-        kinerja: 62,
-        penghargaan: 60,
-        timKerja: 68,
-        umpanBalik: 70,
-      },
-      updatedAt: new Date().toISOString(),
-    }
+      nip: '199505042019031004',
+      nama: 'Dewi Lestari, S.S',
+      unitOrganisasi: 'Biro Hubungan Masyarakat',
+      jabatan: 'Pranata Humas Ahli Pertama',
+      nilaiX: 90,
+      nilaiY: 65,
+      box: 7,
+      komponenX: { Kepemimpinan: 92, Inovasi: 88 },
+      komponenY: { 'Capaian SKP': 66, Disiplin: 64 },
+    },
   ];
 
-  const defaultUserHash = await hashPassword('pegawai123');
-  for (const p of sampleEmployees) {
-    memoryPegawai[p.nip] = p;
-    memoryUsers[p.nip] = {
+  for (const p of samplePegawai) {
+    memoryPegawai.set(p.nip, p);
+    memoryUsers.set(p.nip, {
       nip: p.nip,
       passwordHash: defaultUserHash,
       role: 'user',
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    });
   }
 
-  // Sample Career Path Periode
-  const samplePeriodeId = 'PERIODE_2026_Q3';
-  memoryPeriodes[samplePeriodeId] = {
-    periodeId: samplePeriodeId,
-    namaPeriode: 'Pemetaan Career Path & Aspirasi Jabatan Q3 2026',
+  // Seed default periode
+  const defaultPeriode: CareerPathPeriode = {
+    periodeId: 'PERIODE_2026_Q1',
+    namaPeriode: 'Pemetaan Karir & Aspirasi Talenta 2026 (Periode 1)',
     status: 'Aktif',
     targetType: 'Semua',
-    targetNip: [],
     dibuatPada: new Date().toISOString(),
-    diperbaruiPada: new Date().toISOString(),
   };
+  memoryPeriodes.set(defaultPeriode.periodeId, defaultPeriode);
 
-  memoryQuestions[samplePeriodeId] = [
+  // Seed default pertanyaan
+  const defaultQuestions: CareerPathPertanyaan[] = [
     {
       urutan: 1,
-      teksPertanyaan: 'Apa orientasi bidang karir yang Anda harapkan dalam 3 tahun ke depan?',
+      teksPertanyaan: 'Apa orientasi pengembangan karir yang Anda harapkan dalam 2 tahun ke depan?',
       tipeSoal: 'Pilihan Ganda',
-      opsi: 'Manajerial / Struktural|Spesialis / Fungsional Ahli|Proyek Khusus / Taskforce|Pengembangan Keahlian Teknis Baru',
+      opsi: 'Promosi Struktural, Pengayaan Jabatan Fungsional, Rotasi Lintassektor, Tugas Belajar',
       wajib: true,
     },
     {
       urutan: 2,
-      teksPertanyaan: 'Pilihlah pengembangan kompetensi yang paling relevan dengan minat Anda (Bisa lebih dari satu):',
+      teksPertanyaan: 'Pilih kompetensi teknis/manajerial yang ingin Anda tingkatkan:',
       tipeSoal: 'Checkbox',
-      opsi: 'Kepemimpinan Strategis|Manajemen Proyek Digital|Analisis Data & AI|Hukum & Regulasi|Manajemen Keuangan Publik',
+      opsi: 'Kepemimpinan Strategis, Analisis Data & AI, Manajemen Proyek, Komunikasi Publik',
       wajib: true,
     },
     {
       urutan: 3,
-      teksPertanyaan: 'Seberapa siap Anda jika ditugaskan atau dirotasi ke unit/wilayah kerja lain?',
-      tipeSoal: 'Skala',
-      opsi: '1|2|3|4|5',
-      wajib: true,
-    },
-    {
-      urutan: 4,
-      teksPertanyaan: 'Unit Organisasi pilihan utama Anda jika dilakukan rotasi/promosi:',
-      tipeSoal: 'Dropdown',
-      opsi: 'Direktorat SDM & Organisasi|Direktorat Keuangan|Pusat Data & Informasi|Biro Hukum & Layanan Informasi',
-      wajib: false,
-    },
-    {
-      urutan: 5,
-      teksPertanyaan: 'Uraikan aspirasi karir dan inovasi yang ingin Anda kontribusikan bagi instansi:',
+      teksPertanyaan: 'Sebutkan inovasi atau kontribusi terbesar yang telah Anda selesaikan tahun ini:',
       tipeSoal: 'Teks Bebas',
       opsi: '',
-      wajib: false,
+      wajib: true,
     },
   ];
-
-  // Sample user answer
-  memoryAnswers[`${samplePeriodeId}_199001012015011001`] = {
-    jawabanId: `${samplePeriodeId}_199001012015011001`,
-    periodeId: samplePeriodeId,
-    nip: '199001012015011001',
-    nama: 'Ahmad Fauzi, S.T.',
-    jawaban: {
-      '0': 'Manajerial / Struktural',
-      '1': ['Kepemimpinan Strategis', 'Analisis Data & AI'],
-      '2': '5',
-      '3': 'Direktorat SDM & Organisasi',
-      '4': 'Ingin mengembangkan transformasi digital dalam pemetaan talenta berbasis AI.',
-    },
-    status: 'Sudah Mengisi',
-    diisiPada: new Date().toISOString(),
-    diperbaruiPada: new Date().toISOString(),
-  };
+  memoryPertanyaan.set(defaultPeriode.periodeId, defaultQuestions);
 }
 
-// Ensure default seed
-initSeedData();
-
-// --- USER OPERATIONS ---
+// === USER STORE ===
 export async function getUser(nip: string): Promise<UserAccount | null> {
-  await initSeedData();
+  await seedInitialData();
   const db = getAdminFirestore();
-
   if (db) {
     try {
       const doc = await db.collection('users').doc(nip).get();
       if (doc.exists) {
         return doc.data() as UserAccount;
       }
-    } catch (err) {
-      console.error('Firestore getUser error:', err);
+    } catch (e) {
+      console.warn('Firestore fallback to memory for getUser:', e);
     }
   }
-
-  // Fallback memory
-  return memoryUsers[nip] || null;
+  return memoryUsers.get(nip) || null;
 }
 
 export async function saveUser(user: UserAccount): Promise<void> {
-  await initSeedData();
+  await seedInitialData();
+  memoryUsers.set(user.nip, user);
   const db = getAdminFirestore();
-  const now = new Date().toISOString();
-  const userData = { ...user, updatedAt: now };
-
   if (db) {
     try {
-      await db.collection('users').doc(user.nip).set(userData, { merge: true });
-    } catch (err) {
-      console.error('Firestore saveUser error:', err);
+      await db.collection('users').doc(user.nip).set(user, { merge: true });
+    } catch (e) {
+      console.warn('Firestore failed saveUser:', e);
     }
   }
-
-  memoryUsers[user.nip] = userData;
 }
 
-// --- PEGAWAI OPERATIONS ---
+// === PEGAWAI STORE ===
 export async function getPegawai(nip: string): Promise<Pegawai | null> {
-  await initSeedData();
+  await seedInitialData();
   const db = getAdminFirestore();
-
   if (db) {
     try {
       const doc = await db.collection('pegawai').doc(nip).get();
       if (doc.exists) {
         return doc.data() as Pegawai;
       }
-    } catch (err) {
-      console.error('Firestore getPegawai error:', err);
+    } catch (e) {
+      console.warn('Firestore fallback for getPegawai:', e);
     }
   }
-
-  return memoryPegawai[nip] || null;
+  return memoryPegawai.get(nip) || null;
 }
 
 export async function getAllPegawai(): Promise<Pegawai[]> {
-  await initSeedData();
+  await seedInitialData();
   const db = getAdminFirestore();
-
   if (db) {
     try {
-      const snapshot = await db.collection('pegawai').get();
-      if (!snapshot.empty) {
-        return snapshot.docs.map((doc) => doc.data() as Pegawai);
+      const snap = await db.collection('pegawai').get();
+      if (!snap.empty) {
+        return snap.docs.map((doc) => doc.data() as Pegawai);
       }
-    } catch (err) {
-      console.error('Firestore getAllPegawai error:', err);
+    } catch (e) {
+      console.warn('Firestore fallback for getAllPegawai:', e);
     }
   }
-
-  return Object.values(memoryPegawai);
+  return Array.from(memoryPegawai.values());
 }
 
-export async function syncPegawaiList(newList: Pegawai[]): Promise<number> {
-  await initSeedData();
+export async function syncPegawaiList(rows: Pegawai[]): Promise<number> {
+  await seedInitialData();
+  memoryPegawai.clear();
+  const defaultUserHash = await hashPassword('user123');
+
   const db = getAdminFirestore();
-  const now = new Date().toISOString();
+  const batch = db ? db.batch() : null;
 
-  // Create default password hash for newly imported employees
-  const defaultPasswordHash = await hashPassword('pegawai123');
+  for (const row of rows) {
+    if (!row.nip) continue;
 
-  if (db) {
-    try {
-      // Clean existing pegawai collection using batching
-      const existingSnap = await db.collection('pegawai').get();
-      if (!existingSnap.empty) {
-        let batch = db.batch();
-        let count = 0;
-        for (const doc of existingSnap.docs) {
-          batch.delete(doc.ref);
-          count++;
-          if (count % 400 === 0) {
-            await batch.commit();
-            batch = db.batch();
-          }
-        }
-        if (count % 400 !== 0) {
-          await batch.commit();
-        }
-      }
-
-      // Write new records
-      let batch = db.batch();
-      let count = 0;
-      for (const p of newList) {
-        const pWithTime = { ...p, updatedAt: now };
-        const ref = db.collection('pegawai').doc(p.nip);
-        batch.set(ref, pWithTime);
-
-        // Also check if user account exists, if not create one
-        const userRef = db.collection('users').doc(p.nip);
-        batch.set(userRef, {
-          nip: p.nip,
-          passwordHash: defaultPasswordHash,
-          role: 'user',
-          createdAt: now,
-          updatedAt: now,
-        }, { merge: true });
-
-        count++;
-        if (count % 200 === 0) {
-          await batch.commit();
-          batch = db.batch();
-        }
-      }
-      if (count % 200 !== 0) {
-        await batch.commit();
-      }
-    } catch (err) {
-      console.error('Firestore syncPegawaiList error:', err);
+    // Calculate Box 1-9 based on X and Y if needed
+    let box = row.box || 5;
+    if (typeof row.nilaiX === 'number' && typeof row.nilaiY === 'number') {
+      const xCat = row.nilaiX >= 80 ? 3 : row.nilaiX >= 65 ? 2 : 1;
+      const yCat = row.nilaiY >= 80 ? 3 : row.nilaiY >= 65 ? 2 : 1;
+      box = (yCat - 1) * 3 + xCat;
     }
-  }
 
-  // Update memory store as well
-  memoryPegawai = {};
-  for (const p of newList) {
-    const pWithTime = { ...p, updatedAt: now };
-    memoryPegawai[p.nip] = pWithTime;
-    if (!memoryUsers[p.nip]) {
-      memoryUsers[p.nip] = {
+    const p: Pegawai = {
+      ...row,
+      box,
+      updatedAt: new Date().toISOString(),
+    };
+
+    memoryPegawai.set(p.nip, p);
+
+    // Create default user account if not exists
+    if (!memoryUsers.has(p.nip)) {
+      memoryUsers.set(p.nip, {
         nip: p.nip,
-        passwordHash: defaultPasswordHash,
+        passwordHash: defaultUserHash,
         role: 'user',
-        createdAt: now,
-        updatedAt: now,
-      };
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    if (db && batch) {
+      const pRef = db.collection('pegawai').doc(p.nip);
+      batch.set(pRef, p, { merge: true });
+
+      const uRef = db.collection('users').doc(p.nip);
+      batch.set(uRef, {
+        nip: p.nip,
+        passwordHash: defaultUserHash,
+        role: 'user',
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
     }
   }
 
-  return newList.length;
+  if (db && batch) {
+    try {
+      await batch.commit();
+    } catch (e) {
+      console.warn('Firestore batch syncPegawaiList failed:', e);
+    }
+  }
+
+  return memoryPegawai.size;
 }
 
-// --- CAREER PATH PERIODE OPERATIONS ---
+// === CAREER PATH PERIODE STORE ===
 export async function getPeriodes(): Promise<CareerPathPeriode[]> {
-  await initSeedData();
+  await seedInitialData();
   const db = getAdminFirestore();
-
   if (db) {
     try {
       const snap = await db.collection('careerPathPeriode').get();
       if (!snap.empty) {
         return snap.docs.map((doc) => doc.data() as CareerPathPeriode);
       }
-    } catch (err) {
-      console.error('Firestore getPeriodes error:', err);
+    } catch (e) {
+      console.warn('Firestore fallback getPeriodes:', e);
     }
   }
-
-  return Object.values(memoryPeriodes);
+  return Array.from(memoryPeriodes.values());
 }
 
 export async function getPeriodeById(periodeId: string): Promise<CareerPathPeriode | null> {
-  await initSeedData();
+  await seedInitialData();
   const db = getAdminFirestore();
-
   if (db) {
     try {
       const doc = await db.collection('careerPathPeriode').doc(periodeId).get();
       if (doc.exists) {
         return doc.data() as CareerPathPeriode;
       }
-    } catch (err) {
-      console.error('Firestore getPeriodeById error:', err);
+    } catch (e) {
+      console.warn('Firestore fallback getPeriodeById:', e);
     }
   }
-
-  return memoryPeriodes[periodeId] || null;
+  return memoryPeriodes.get(periodeId) || null;
 }
 
 export async function savePeriode(periode: CareerPathPeriode): Promise<void> {
-  await initSeedData();
-  const db = getAdminFirestore();
+  await seedInitialData();
   const now = new Date().toISOString();
-  const item = {
+  const item: CareerPathPeriode = {
     ...periode,
-    dibuatPada: periode.dibuatPada || now,
     diperbaruiPada: now,
+    dibuatPada: periode.dibuatPada || now,
   };
 
+  memoryPeriodes.set(item.periodeId, item);
+
+  const db = getAdminFirestore();
   if (db) {
     try {
-      await db.collection('careerPathPeriode').doc(periode.periodeId).set(item, { merge: true });
-    } catch (err) {
-      console.error('Firestore savePeriode error:', err);
+      await db.collection('careerPathPeriode').doc(item.periodeId).set(item, { merge: true });
+    } catch (e) {
+      console.warn('Firestore savePeriode failed:', e);
     }
   }
-
-  memoryPeriodes[periode.periodeId] = item;
 }
 
 export async function deletePeriode(periodeId: string): Promise<void> {
-  await initSeedData();
-  const db = getAdminFirestore();
+  await seedInitialData();
+  memoryPeriodes.delete(periodeId);
+  memoryPertanyaan.delete(periodeId);
 
+  const db = getAdminFirestore();
   if (db) {
     try {
       await db.collection('careerPathPeriode').doc(periodeId).delete();
-    } catch (err) {
-      console.error('Firestore deletePeriode error:', err);
+    } catch (e) {
+      console.warn('Firestore deletePeriode failed:', e);
     }
   }
-
-  delete memoryPeriodes[periodeId];
-  delete memoryQuestions[periodeId];
 }
 
-// --- PERTANYAAN OPERATIONS ---
+// === PERTANYAAN STORE ===
 export async function getPertanyaan(periodeId: string): Promise<CareerPathPertanyaan[]> {
-  await initSeedData();
+  await seedInitialData();
   const db = getAdminFirestore();
-
   if (db) {
     try {
       const snap = await db
@@ -482,97 +333,86 @@ export async function getPertanyaan(periodeId: string): Promise<CareerPathPertan
         .collection('pertanyaan')
         .orderBy('urutan', 'asc')
         .get();
-
       if (!snap.empty) {
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() } as CareerPathPertanyaan));
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as CareerPathPertanyaan);
       }
-    } catch (err) {
-      console.error('Firestore getPertanyaan error:', err);
+    } catch (e) {
+      console.warn('Firestore fallback getPertanyaan:', e);
     }
   }
-
-  return memoryQuestions[periodeId] || [];
+  return memoryPertanyaan.get(periodeId) || [];
 }
 
-export async function savePertanyaan(
-  periodeId: string,
-  questions: CareerPathPertanyaan[]
-): Promise<void> {
-  await initSeedData();
-  const db = getAdminFirestore();
+export async function savePertanyaan(periodeId: string, questions: CareerPathPertanyaan[]): Promise<void> {
+  await seedInitialData();
+  memoryPertanyaan.set(periodeId, questions);
 
+  const db = getAdminFirestore();
   if (db) {
     try {
-      const colRef = db.collection('careerPathPeriode').doc(periodeId).collection('pertanyaan');
-      const existing = await colRef.get();
+      const subRef = db.collection('careerPathPeriode').doc(periodeId).collection('pertanyaan');
+      const existing = await subRef.get();
       const batch = db.batch();
 
-      for (const d of existing.docs) {
-        batch.delete(d.ref);
-      }
+      existing.docs.forEach((doc) => batch.delete(doc.ref));
 
       questions.forEach((q, idx) => {
-        const qRef = colRef.doc(`q_${idx + 1}`);
-        batch.set(qRef, { ...q, urutan: idx + 1 });
+        const qDoc = subRef.doc(`q_${idx + 1}`);
+        batch.set(qDoc, { ...q, urutan: idx + 1 });
       });
 
       await batch.commit();
-    } catch (err) {
-      console.error('Firestore savePertanyaan error:', err);
+    } catch (e) {
+      console.warn('Firestore savePertanyaan failed:', e);
     }
   }
-
-  memoryQuestions[periodeId] = questions.map((q, idx) => ({ ...q, urutan: idx + 1 }));
 }
 
-// --- JAWABAN OPERATIONS ---
-export async function getJawabanUser(
-  periodeId: string,
-  nip: string
-): Promise<CareerPathJawaban | null> {
-  await initSeedData();
-  const db = getAdminFirestore();
+// === JAWABAN STORE ===
+export async function getJawabanUser(periodeId: string, nip: string): Promise<CareerPathJawaban | null> {
+  await seedInitialData();
   const key = `${periodeId}_${nip}`;
-
+  const db = getAdminFirestore();
   if (db) {
     try {
       const doc = await db.collection('careerPathJawaban').doc(key).get();
       if (doc.exists) {
         return doc.data() as CareerPathJawaban;
       }
-    } catch (err) {
-      console.error('Firestore getJawabanUser error:', err);
+    } catch (e) {
+      console.warn('Firestore fallback getJawabanUser:', e);
     }
   }
-
-  return memoryAnswers[key] || null;
+  return memoryJawaban.get(key) || null;
 }
 
 export async function getAllJawaban(periodeId: string): Promise<CareerPathJawaban[]> {
-  await initSeedData();
+  await seedInitialData();
   const db = getAdminFirestore();
-
   if (db) {
     try {
       const snap = await db
         .collection('careerPathJawaban')
         .where('periodeId', '==', periodeId)
         .get();
-
       if (!snap.empty) {
-        return snap.docs.map((d) => d.data() as CareerPathJawaban);
+        return snap.docs.map((doc) => doc.data() as CareerPathJawaban);
       }
-    } catch (err) {
-      console.error('Firestore getAllJawaban error:', err);
+    } catch (e) {
+      console.warn('Firestore fallback getAllJawaban:', e);
     }
   }
-
-  return Object.values(memoryAnswers).filter((ans) => ans.periodeId === periodeId);
+  const result: CareerPathJawaban[] = [];
+  memoryJawaban.forEach((val) => {
+    if (val.periodeId === periodeId) {
+      result.push(val);
+    }
+  });
+  return result;
 }
 
 export async function saveJawaban(jawaban: CareerPathJawaban): Promise<void> {
-  await initSeedData();
-  const db = getAdminFirestore();
+  await seedInitialData();
   const now = new Date().toISOString();
   const item: CareerPathJawaban = {
     ...jawaban,
@@ -580,13 +420,14 @@ export async function saveJawaban(jawaban: CareerPathJawaban): Promise<void> {
     diperbaruiPada: now,
   };
 
+  memoryJawaban.set(item.jawabanId, item);
+
+  const db = getAdminFirestore();
   if (db) {
     try {
-      await db.collection('careerPathJawaban').doc(jawaban.jawabanId).set(item, { merge: true });
-    } catch (err) {
-      console.error('Firestore saveJawaban error:', err);
+      await db.collection('careerPathJawaban').doc(item.jawabanId).set(item, { merge: true });
+    } catch (e) {
+      console.warn('Firestore saveJawaban failed:', e);
     }
   }
-
-  memoryAnswers[jawaban.jawabanId] = item;
 }
