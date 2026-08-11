@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
-import { JWTPayload } from './types';
+import { JWTPayload } from './types.js';
 
 const SECRET_KEY = new TextEncoder().encode(
   process.env.JWT_SECRET || 'cekkotakku-super-secret-jwt-key-2026'

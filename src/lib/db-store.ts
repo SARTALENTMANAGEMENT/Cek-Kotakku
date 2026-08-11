@@ -1,12 +1,12 @@
-import { getAdminFirestore } from './firebase-admin';
+import { getAdminFirestore } from './firebase-admin.js';
 import {
   UserAccount,
   Pegawai,
   CareerPathPeriode,
   CareerPathPertanyaan,
   CareerPathJawaban,
-} from './types';
-import { hashPassword } from './auth';
+} from './types.js';
+import { hashPassword } from './auth.js';
 
 // Initial seed data for memory store fallback
 let memoryUsers: Record<string, UserAccount> = {};

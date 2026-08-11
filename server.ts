@@ -16,9 +16,9 @@ import {
   getJawabanUser,
   getAllJawaban,
   saveJawaban,
-} from './src/lib/db-store';
-import { comparePassword, hashPassword, signJWT, verifyJWT } from './src/lib/auth';
-import { JWTPayload, Pegawai, CareerPathPeriode, CareerPathPertanyaan, CareerPathJawaban } from './src/lib/types';
+} from './src/lib/db-store.js';
+import { comparePassword, hashPassword, signJWT, verifyJWT } from './src/lib/auth.js';
+import { JWTPayload, Pegawai, CareerPathPeriode, CareerPathPertanyaan, CareerPathJawaban } from './src/lib/types.js';
 
 async function createApp() {
   const app = express();
