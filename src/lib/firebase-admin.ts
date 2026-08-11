@@ -13,6 +13,7 @@ export function getAdminFirestore(): Firestore | null {
   let privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
   if (!projectId || !clientEmail || !privateKey) {
+    console.warn('Firebase Admin credentials missing from environment variables. Falling back to local persistent memory store.');
     return null;
   }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu } from 'lucide-react';
+import { Menu, Sparkles } from 'lucide-react';
 import { JWTPayload } from '../../lib/types';
 
 interface TopbarProps {
@@ -8,63 +8,48 @@ interface TopbarProps {
   user: JWTPayload | null;
 }
 
-export const Topbar: React.FC<TopbarProps> = ({
-  currentPath,
-  onToggleMobileSidebar,
-  user,
-}) => {
-  const getPageMeta = () => {
-    switch (currentPath) {
-      case '/':
-        return {
-          title: 'Hasil Pemetaan Talenta Pegawai',
-          subtitle: 'Visualisasi posisi 9-Box Grid dan rekomendasi pengembangan karir',
-        };
-      case '/cari-talenta':
-        return {
-          title: 'Matriks & Pencarian Talenta',
-          subtitle: 'Direktori master pegawai dan pemetaan 9-box organisasi',
-        };
-      case '/career-path':
-        return {
-          title: 'Kuesioner Career Path',
-          subtitle: 'Pengisian pemetaan minat, aspirasi, dan rencana karir',
-        };
-      case '/kelola-kuesioner':
-        return {
-          title: 'Kelola Periode & Pertanyaan',
-          subtitle: 'Pusat pengaturan instrumen kuesioner career path pegawai',
-        };
-      case '/monitoring':
-        return {
-          title: 'Monitoring & Rekapitulasi Pengisian',
-          subtitle: 'Pantau progres pengisian kuesioner per unit organisasi',
-        };
-      case '/sinkronisasi':
-        return {
-          title: 'Sinkronisasi Data Excel Talent',
-          subtitle: 'Impor & perbarui skor pemetaan 9-box pegawai dari file Excel',
-        };
-      case '/ganti-password':
-        return {
-          title: 'Pengaturan Kata Sandi',
-          subtitle: 'Perbarui kata sandi keamanan akun Anda',
-        };
-      default:
-        return {
-          title: 'CEK KOTAKKU',
-          subtitle: 'Sistem Manajemen Talenta & Pemetaan Karir Pegawai',
-        };
-    }
-  };
+const PAGE_METADATA: Record<string, { title: string; subtitle: string }> = {
+  '/dashboard': {
+    title: 'Dashboard Pemetaan Talenta',
+    subtitle: 'Ringkasan posisi 9-box matrix, komponen skor, dan rekomendasi karir',
+  },
+  '/career-path': {
+    title: 'Career Path Pegawai',
+    subtitle: 'Daftar dan pengisian kuesioner pemetaan jalur karir & aspirasi',
+  },
+  '/ganti-password': {
+    title: 'Ganti Kata Sandi',
+    subtitle: 'Pembaruan kata sandi akun secara aman',
+  },
+  '/admin/cari-talenta': {
+    title: 'Pencarian Talenta Pegawai',
+    subtitle: 'Cari dan tinjau hasil pemetaan 9-box pegawai berdasarkan NIP',
+  },
+  '/admin/sinkronisasi': {
+    title: 'Sinkronisasi Data Talenta',
+    subtitle: 'Upload file Excel (.xls/.xlsx) untuk mereset dan menyinkronkan data master pegawai',
+  },
+  '/admin/career-path': {
+    title: 'Kelola Kuesioner Career Path',
+    subtitle: 'Pengaturan periode kuesioner dan penyusunan daftar pertanyaan dinamis',
+  },
+  '/admin/monitoring': {
+    title: 'Monitoring Career Path',
+    subtitle: 'Pantau rekapitulasi, grafik pengisian, dan unduh hasil kuesioner ke Excel',
+  },
+};
 
-  const meta = getPageMeta();
+export const Topbar: React.FC<TopbarProps> = ({ currentPath, onToggleMobileSidebar, user }) => {
+  const meta = PAGE_METADATA[currentPath] || {
+    title: 'Sistem Manajemen Talenta',
+    subtitle: 'Aplikasi CEK KOTAKKU Pemetaan Talenta Pegawai',
+  };
 
   const userInitials = (user?.nama || user?.nip || 'U')
     .split(' ')
     .map((n) => n[0])
-    .slice(0, 2)
     .join('')
+    .substring(0, 2)
     .toUpperCase();
 
   return (

@@ -1,263 +1,173 @@
-import React, { useEffect, useState } from 'react';
-import { Search, Filter, User, Building, Eye, ChevronRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { UserSearch, Search, Clock, History, UserCheck, AlertCircle } from 'lucide-react';
 import { Pegawai } from '../lib/types';
 import { NineBoxGrid } from '../components/dashboard/NineBoxGrid';
-import { Modal } from '../components/ui/Modal';
-import { BOX_INFO_MAP } from '../lib/recommendations';
+import { RadarChartComponent } from '../components/dashboard/RadarChartComponent';
+import { generateNarrativeRecommendation } from '../lib/recommendations';
 
-export const CariTalentaPage: React.FC = () => {
-  const [pegawaiList, setPegawaiList] = useState<Pegawai[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [unitFilter, setUnitFilter] = useState('');
-  const [selectedBoxFilter, setSelectedBoxFilter] = useState<number | null>(null);
-  const [selectedPegawai, setSelectedPegawai] = useState<Pegawai | null>(null);
+interface CariTalentaPageProps {
+  onShowToast: (type: 'success' | 'error' | 'info', text: string) => void;
+}
 
-  useEffect(() => {
-    fetchPegawai();
-  }, []);
+export const CariTalentaPage: React.FC<CariTalentaPageProps> = ({ onShowToast }) => {
+  const [searchNip, setSearchNip] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [pegawai, setPegawai] = useState<Pegawai | null>(null);
+  const [historyNip, setHistoryNip] = useState<string[]>([]);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const fetchPegawai = async () => {
+  const handleSearch = async (nipToSearch: string) => {
+    const nip = nipToSearch.trim();
+    if (!nip) return;
+
     setLoading(true);
+    setErrorMsg('');
+    setPegawai(null);
+
     try {
-      const res = await fetch('/api/pegawai');
+      const res = await fetch(`/api/pegawai/${nip}`);
       const data = await res.json();
-      if (res.ok && data.success) {
-        setPegawaiList(data.data || []);
+
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Data pegawai dengan NIP tersebut tidak ditemukan.');
+        return;
       }
+
+      setPegawai(data.data);
+      // Add to search history
+      setHistoryNip((prev) => Array.from(new Set([nip, ...prev])).slice(0, 5));
     } catch (err) {
-      console.error('Failed to fetch pegawai:', err);
+      setErrorMsg('Gagal terhubung ke server.');
     } finally {
       setLoading(false);
     }
   };
 
-  const units = Array.from(new Set(pegawaiList.map((p) => p.unitOrganisasi).filter(Boolean)));
-
-  const filteredList = pegawaiList.filter((p) => {
-    const matchSearch =
-      p.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.nip.includes(searchTerm) ||
-      p.jabatan.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchUnit = !unitFilter || p.unitOrganisasi === unitFilter;
-    const matchBox = selectedBoxFilter === null || p.box === selectedBoxFilter;
-    return matchSearch && matchUnit && matchBox;
-  });
-
   return (
-    <div className="space-y-6">
-      {/* Top Matrix Overview */}
-      <NineBoxGrid
-        allPegawai={pegawaiList}
-        selectedBoxFilter={selectedBoxFilter}
-        onSelectBox={(box) => {
-          if (selectedBoxFilter === box) {
-            setSelectedBoxFilter(null);
-          } else {
-            setSelectedBoxFilter(box);
-          }
-        }}
-      />
+    <div className="space-y-6 pb-12">
+      {/* Header & Search Bar */}
+      <div className="p-6 md:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
+        <div>
+          <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+            <UserSearch className="w-6 h-6 text-indigo-600" />
+            Cari & Tinjau Talenta Pegawai
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Masukkan NIP pegawai untuk melihat posisi 9-Box Matrix, rincian komponen, dan grafik pemetaan.
+          </p>
+        </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:w-80">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSearch(searchNip);
+          }}
+          className="flex flex-col sm:flex-row gap-3"
+        >
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Cari berdasarkan Nama, NIP, Jabatan..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
+              value={searchNip}
+              onChange={(e) => setSearchNip(e.target.value)}
+              placeholder="Masukkan NIP Pegawai (Cth: 199001012015011001)"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           </div>
-
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-slate-400" />
-              <select
-                value={unitFilter}
-                onChange={(e) => setUnitFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-              >
-                <option value="">Semua Unit Kerja</option>
-                {units.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedBoxFilter !== null && (
-              <button
-                onClick={() => setSelectedBoxFilter(null)}
-                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
-              >
-                Reset Filter Box #{selectedBoxFilter}
-              </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-violet-600 to-pink-600 text-white font-extrabold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            {loading ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <Search className="w-4 h-4" />
+                <span>Cari Talenta</span>
+              </>
             )}
-          </div>
-        </div>
+          </button>
+        </form>
 
-        {/* Status Count Summary */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs font-semibold text-slate-500">
-          <span>
-            Menampilkan <strong className="text-slate-900">{filteredList.length}</strong> dari{' '}
-            <strong className="text-slate-900">{pegawaiList.length}</strong> Pegawai
-          </span>
-          {selectedBoxFilter !== null && (
-            <span className="text-indigo-600 font-bold">
-              Filter Terpasang: Box #{selectedBoxFilter} ({BOX_INFO_MAP[selectedBoxFilter]?.category})
+        {/* Search History Chips */}
+        {historyNip.length > 0 && (
+          <div className="flex items-center gap-2 pt-2 text-xs">
+            <span className="font-bold text-slate-400 flex items-center gap-1 shrink-0">
+              <History className="w-3.5 h-3.5" /> Riwayat Pencarian:
             </span>
-          )}
-        </div>
-      </div>
-
-      {/* Directory Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-xs font-bold text-slate-400">Loading data pegawai...</div>
-        ) : filteredList.length === 0 ? (
-          <div className="p-8 text-center text-xs font-bold text-slate-400">
-            Tidak ada pegawai yang sesuai kriteria pencarian.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-extrabold">
-                <tr>
-                  <th className="p-4">Pegawai</th>
-                  <th className="p-4">Jabatan & Unit</th>
-                  <th className="p-4 text-center">Skor X (Potensi)</th>
-                  <th className="p-4 text-center">Skor Y (Kinerja)</th>
-                  <th className="p-4 text-center">Talent Box</th>
-                  <th className="p-4 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                {filteredList.map((p) => {
-                  const box = BOX_INFO_MAP[p.box] || BOX_INFO_MAP[5];
-                  return (
-                    <tr key={p.nip} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 font-black flex items-center justify-center shrink-0">
-                            <User className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="font-extrabold text-slate-900">{p.nama}</p>
-                            <p className="text-[10px] text-slate-400 font-mono">NIP: {p.nip}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="p-4">
-                        <p className="font-bold text-slate-800">{p.jabatan}</p>
-                        <p className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
-                          <Building className="w-3 h-3" />
-                          <span>{p.unitOrganisasi}</span>
-                        </p>
-                      </td>
-
-                      <td className="p-4 text-center font-black text-indigo-600 text-sm">
-                        {p.nilaiX}
-                      </td>
-
-                      <td className="p-4 text-center font-black text-pink-600 text-sm">
-                        {p.nilaiY}
-                      </td>
-
-                      <td className="p-4 text-center">
-                        <span
-                          className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black border ${box.badgeColor}`}
-                        >
-                          Box {p.box}: {box.category}
-                        </span>
-                      </td>
-
-                      <td className="p-4 text-right">
-                        <button
-                          onClick={() => setSelectedPegawai(p)}
-                          className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs inline-flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Detail</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="flex flex-wrap gap-1.5">
+              {historyNip.map((hNip) => (
+                <button
+                  key={hNip}
+                  onClick={() => {
+                    setSearchNip(hNip);
+                    handleSearch(hNip);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition-colors"
+                >
+                  {hNip}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Detail Pegawai Modal */}
-      {selectedPegawai && (
-        <Modal
-          isOpen={!!selectedPegawai}
-          onClose={() => setSelectedPegawai(null)}
-          title={`Detail Pemetaan Talenta: ${selectedPegawai.nama}`}
-        >
-          <div className="space-y-5">
-            <div className="p-4 rounded-2xl bg-slate-900 text-white flex items-center justify-between">
-              <div>
-                <p className="text-base font-black">{selectedPegawai.nama}</p>
-                <p className="text-xs text-slate-300">NIP: {selectedPegawai.nip}</p>
-                <p className="text-xs text-indigo-300 font-semibold mt-1">
-                  {selectedPegawai.jabatan} • {selectedPegawai.unitOrganisasi}
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="px-3 py-1 rounded-full bg-indigo-500 text-white font-black text-xs">
-                  Box #{selectedPegawai.box}
-                </span>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  X: {selectedPegawai.nilaiX} | Y: {selectedPegawai.nilaiY}
-                </p>
-              </div>
+      {errorMsg && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* Searched Employee Details */}
+      {pegawai && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Employee Summary Banner */}
+          <div className="p-6 rounded-3xl bg-slate-900 text-white border border-slate-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-1">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                PROFIL TALENTA PEGAWAI
+              </span>
+              <h3 className="text-2xl font-black text-white">{pegawai.nama}</h3>
+              <p className="text-xs text-slate-300">
+                NIP: {pegawai.nip} | Jabatan: {pegawai.jabatan} ({pegawai.unitOrganisasi})
+              </p>
             </div>
 
-            {/* Recommendations */}
-            {(() => {
-              const info = BOX_INFO_MAP[selectedPegawai.box] || BOX_INFO_MAP[5];
-              return (
-                <div className="space-y-4">
-                  <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100">
-                    <h4 className="text-xs font-black text-indigo-900 uppercase tracking-wider mb-2">
-                      Rekomendasi Pengembangan:
-                    </h4>
-                    <ul className="space-y-1.5">
-                      {info.rekomendasiPengembangan.map((item, idx) => (
-                        <li key={idx} className="text-xs font-semibold text-indigo-950 flex items-start gap-2">
-                          <ChevronRight className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-pink-50 border border-pink-100">
-                    <h4 className="text-xs font-black text-pink-900 uppercase tracking-wider mb-2">
-                      Rekomendasi Karir & Suksesi:
-                    </h4>
-                    <ul className="space-y-1.5">
-                      {info.rekomendasiKarir.map((item, idx) => (
-                        <li key={idx} className="text-xs font-semibold text-pink-950 flex items-start gap-2">
-                          <ChevronRight className="w-3.5 h-3.5 text-pink-600 shrink-0 mt-0.5" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              );
-            })()}
+            <div className="flex items-center gap-3 bg-slate-800/80 p-4 rounded-2xl border border-slate-700/60 shrink-0">
+              <div className="text-center px-3 border-r border-slate-700">
+                <p className="text-[10px] font-extrabold uppercase text-slate-400">Sumbu X (Potensi)</p>
+                <p className="text-2xl font-black text-indigo-400">{pegawai.nilaiX.toFixed(1)}</p>
+              </div>
+              <div className="text-center px-3 border-r border-slate-700">
+                <p className="text-[10px] font-extrabold uppercase text-slate-400">Sumbu Y (Kinerja)</p>
+                <p className="text-2xl font-black text-pink-400">{pegawai.nilaiY.toFixed(1)}</p>
+              </div>
+              <div className="text-center px-3">
+                <p className="text-[10px] font-extrabold uppercase text-slate-400">Kategori</p>
+                <p className="text-2xl font-black text-amber-400">BOX {pegawai.box}</p>
+              </div>
+            </div>
           </div>
-        </Modal>
+
+          {/* 9 Box Grid */}
+          <NineBoxGrid currentBox={pegawai.box} />
+
+          {/* Recharts Radar Chart */}
+          <RadarChartComponent komponenX={pegawai.komponenX} komponenY={pegawai.komponenY} />
+
+          {/* Strategic Recommendation */}
+          <div className="bg-gradient-to-r from-indigo-900 via-violet-900 to-slate-900 p-6 rounded-3xl text-white shadow-md space-y-2">
+            <h4 className="text-sm font-extrabold text-indigo-200 uppercase tracking-wider">
+              Rekomendasi Karir Strategis Box {pegawai.box}
+            </h4>
+            <p className="text-sm font-medium leading-relaxed text-slate-200">
+              {generateNarrativeRecommendation(pegawai.box)}
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

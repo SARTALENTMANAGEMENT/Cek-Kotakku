@@ -1,22 +1,28 @@
-export interface JWTPayload {
-  nip: string;
-  role: 'admin' | 'user';
-  nama?: string;
-  [key: string]: any;
-}
+export type Role = 'admin' | 'user';
 
 export interface UserAccount {
   nip: string;
   passwordHash: string;
-  role: 'admin' | 'user';
+  role: Role;
   createdAt?: string;
   updatedAt?: string;
 }
 
-export interface KomponenNilai {
-  nama: string;
-  skor: number;
-  bobot: number;
+export interface KomponenPotensi {
+  kompetensi: number;
+  pengembangan: number;
+  pengalaman: number;
+  potensi: number;
+  pendidikan: number;
+  kesesuaian: number;
+  disiplin: number;
+}
+
+export interface KomponenKinerja {
+  kinerja: number;
+  penghargaan: number;
+  timKerja: number;
+  umpanBalik: number;
 }
 
 export interface Pegawai {
@@ -24,40 +30,51 @@ export interface Pegawai {
   nama: string;
   unitOrganisasi: string;
   jabatan: string;
-  nilaiX: number; // Potensi (0 - 100 atau 1 - 3)
-  nilaiY: number; // Kinerja (0 - 100 atau 1 - 3)
-  box: number; // Box 1 sampai 9
-  komponenX?: Record<string, number> | KomponenNilai[];
-  komponenY?: Record<string, number> | KomponenNilai[];
+  nilaiX: number; // Skor Potensi
+  nilaiY: number; // Skor Kinerja
+  box: number; // 1-9
+  komponenX: KomponenPotensi;
+  komponenY: KomponenKinerja;
   updatedAt?: string;
 }
+
+export type StatusPeriode = 'Aktif' | 'Nonaktif' | 'Selesai';
+export type TargetType = 'Semua' | 'Tertentu';
 
 export interface CareerPathPeriode {
   periodeId: string;
   namaPeriode: string;
-  status: 'Aktif' | 'Nonaktif' | 'Selesai';
-  targetType: 'Semua' | 'Tertentu';
-  targetNip?: string[];
+  status: StatusPeriode;
+  targetType: TargetType;
+  targetNip: string[];
   dibuatPada?: string;
   diperbaruiPada?: string;
 }
+
+export type TipeSoal = 'Pilihan Ganda' | 'Checkbox' | 'Dropdown' | 'Skala' | 'Teks Bebas';
 
 export interface CareerPathPertanyaan {
   id?: string;
   urutan: number;
   teksPertanyaan: string;
-  tipeSoal: 'Pilihan Ganda' | 'Checkbox' | 'Dropdown' | 'Skala' | 'Teks Bebas';
-  opsi?: string;
+  tipeSoal: TipeSoal;
+  opsi: string; // Separated by '|'
   wajib: boolean;
 }
 
 export interface CareerPathJawaban {
-  jawabanId: string;
+  jawabanId: string; // ${periodeId}_${nip}
   periodeId: string;
   nip: string;
   nama: string;
-  jawaban: Record<string, any>;
+  jawaban: Record<string, string | string[]>;
   status: 'Sudah Mengisi' | 'Belum Mengisi';
   diisiPada?: string;
   diperbaruiPada?: string;
+}
+
+export interface JWTPayload {
+  nip: string;
+  role: Role;
+  nama?: string;
 }

@@ -1,13 +1,14 @@
 import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
-import { JWTPayload } from './types';
+import { JWTPayload } from './types.js';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'cad34702c6bdd25eb786e5a8beb1fdc0d5be7a80f10b6b6dab7a82fb1031fa27'
+const SECRET_KEY = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'cekkotakku-super-secret-jwt-key-2026'
 );
 
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
 }
 
 export async function comparePassword(password: string, hash: string): Promise<boolean> {
@@ -19,14 +20,14 @@ export async function signJWT(payload: JWTPayload): Promise<string> {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('6h')
-    .sign(JWT_SECRET);
+    .sign(SECRET_KEY);
 }
 
 export async function verifyJWT(token: string): Promise<JWTPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, SECRET_KEY);
     return payload as unknown as JWTPayload;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

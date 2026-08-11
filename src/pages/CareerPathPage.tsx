@@ -1,21 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { Compass, CheckCircle2, Send, Clock, Calendar } from 'lucide-react';
-import { CareerPathPeriode, CareerPathPertanyaan, JWTPayload } from '../lib/types';
+import React, { useState, useEffect } from 'react';
+import { Compass, FileCheck2, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { CareerPathPeriode, CareerPathPertanyaan, CareerPathJawaban, JWTPayload } from '../lib/types';
 import { QuestionRenderer } from '../components/career-path/QuestionRenderer';
 
 interface CareerPathPageProps {
   user: JWTPayload | null;
-  onShowToast: (msg: { type: 'success' | 'error'; text: string }) => void;
+  onShowToast: (type: 'success' | 'error' | 'info', text: string) => void;
 }
 
 export const CareerPathPage: React.FC<CareerPathPageProps> = ({ user, onShowToast }) => {
   const [periodes, setPeriodes] = useState<CareerPathPeriode[]>([]);
   const [selectedPeriode, setSelectedPeriode] = useState<CareerPathPeriode | null>(null);
   const [questions, setQuestions] = useState<CareerPathPertanyaan[]>([]);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [existingAnswer, setExistingAnswer] = useState<CareerPathJawaban | null>(null);
+  const [formData, setFormData] = useState<Record<string, string | string[]>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchPeriodes();
@@ -26,217 +27,237 @@ export const CareerPathPage: React.FC<CareerPathPageProps> = ({ user, onShowToas
     try {
       const res = await fetch('/api/career-path/periode');
       const data = await res.json();
-      if (res.ok && data.success) {
-        const list: CareerPathPeriode[] = data.data || [];
-        setPeriodes(list);
-        if (list.length > 0) {
-          selectPeriode(list[0]);
-        }
+      if (res.ok && data.data) {
+        setPeriodes(data.data);
       }
     } catch (err) {
-      console.error('Failed to fetch periodes:', err);
+      onShowToast('error', 'Gagal memuat daftar periode Career Path.');
     } finally {
       setLoading(false);
     }
   };
 
-  const selectPeriode = async (p: CareerPathPeriode) => {
-    setSelectedPeriode(p);
+  const handleOpenPeriode = async (periode: CareerPathPeriode) => {
+    setSelectedPeriode(periode);
     setLoading(true);
+    setFormData({});
+    setErrors({});
+
     try {
-      // Fetch Questions
-      const resQ = await fetch(`/api/career-path/periode/${p.periodeId}/pertanyaan`);
-      const dataQ = await resQ.json();
+      // Fetch questions
+      const qRes = await fetch(`/api/career-path/periode/${periode.periodeId}/pertanyaan`);
+      const qData = await qRes.json();
+      const qList: CareerPathPertanyaan[] = qData.data || [];
+      setQuestions(qList);
 
-      // Fetch User's existing answers
-      const resA = await fetch(`/api/career-path/jawaban?periodeId=${p.periodeId}`);
-      const dataA = await resA.json();
+      // Fetch user's existing answer if any
+      const aRes = await fetch(`/api/career-path/jawaban?periodeId=${periode.periodeId}`);
+      const aData = await aRes.json();
+      const ans: CareerPathJawaban | null = aData.data || null;
+      setExistingAnswer(ans);
 
-      if (resQ.ok && dataQ.success) {
-        setQuestions(dataQ.data || []);
-      }
-
-      if (resA.ok && dataA.success && dataA.data) {
-        setAnswers(dataA.data.jawaban || {});
-        setIsSubmitted(dataA.data.status === 'Sudah Mengisi');
+      if (ans && ans.jawaban) {
+        setFormData(ans.jawaban);
       } else {
-        setAnswers({});
-        setIsSubmitted(false);
+        // Initialize default empty values
+        const initial: Record<string, string | string[]> = {};
+        qList.forEach((q, idx) => {
+          initial[idx.toString()] = q.tipeSoal === 'Checkbox' ? [] : '';
+        });
+        setFormData(initial);
       }
     } catch (err) {
-      console.error('Failed to load questions/answers:', err);
+      onShowToast('error', 'Gagal memuat kuesioner.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAnswerChange = (idx: number, val: any) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [`q_${idx}`]: val,
-    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPeriode) return;
 
-    // Validate required questions
-    for (let i = 0; i < questions.length; i++) {
-      const q = questions[i];
+    // Validate mandatory fields
+    const newErrors: Record<string, string> = {};
+    questions.forEach((q, idx) => {
       if (q.wajib) {
-        const val = answers[`q_${i}`];
-        if (
-          val === undefined ||
-          val === null ||
-          val === '' ||
-          (Array.isArray(val) && val.length === 0)
-        ) {
-          onShowToast({
-            type: 'error',
-            text: `Pertanyaan #${i + 1} (${q.teksPertanyaan}) wajib diisi!`,
-          });
-          return;
+        const key = idx.toString();
+        const val = formData[key];
+        if (!val || (Array.isArray(val) && val.length === 0)) {
+          newErrors[key] = 'Pertanyaan ini wajib diisi.';
         }
       }
+    });
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      onShowToast('error', 'Mohon lengkapi seluruh pertanyaan yang wajib diisi.');
+      return;
     }
 
-    setIsSaving(true);
+    setSubmitting(true);
+
     try {
       const res = await fetch('/api/career-path/jawaban', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           periodeId: selectedPeriode.periodeId,
-          jawaban: answers,
+          jawaban: formData,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Gagal menyimpan jawaban kuesioner.');
+
+      if (!res.ok) {
+        onShowToast('error', data.error || 'Gagal menyimpan jawaban.');
+        setSubmitting(false);
+        return;
       }
 
-      setIsSubmitted(true);
-      onShowToast({
-        type: 'success',
-        text: 'Jawaban kuesioner career path Anda berhasil disimpan!',
-      });
-    } catch (err: any) {
-      onShowToast({
-        type: 'error',
-        text: err.message || 'Terjadi kesalahan saat menyimpan.',
-      });
+      onShowToast('success', 'Jawaban kuesioner berhasil disimpan!');
+      setExistingAnswer(data.data);
+    } catch (err) {
+      onShowToast('error', 'Terjadi kesalahan saat mengirim jawaban.');
     } finally {
-      setIsSaving(false);
+      setSubmitting(false);
     }
   };
 
   if (loading && periodes.length === 0) {
     return (
-      <div className="p-8 text-center text-xs font-bold text-slate-400">
-        Memuat kuesioner career path...
-      </div>
-    );
-  }
-
-  if (periodes.length === 0) {
-    return (
-      <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-3">
-        <Clock className="w-8 h-8 text-slate-400 mx-auto" />
-        <h3 className="font-extrabold text-base text-slate-800">
-          Belum Ada Periode Kuesioner Aktif
-        </h3>
-        <p className="text-xs text-slate-500 max-w-sm mx-auto">
-          Administrator belum membuka periode pengisian kuesioner career path baru untuk NIP Anda.
-        </p>
+      <div className="p-12 text-center">
+        <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-xs font-bold text-slate-500">Memuat periode kuesioner Career Path...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Selector Periodes */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-            <Compass className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-extrabold text-sm text-slate-900">Pilih Periode Pengisian</h3>
-            <p className="text-xs text-slate-500">Pilih kuesioner karir yang ingin diselesaikan</p>
-          </div>
+    <div className="space-y-6 pb-12">
+      {/* Page Header */}
+      <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+            <Compass className="w-5 h-5 text-indigo-600" />
+            Pengisian Kuesioner Career Path
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Pilihlah periode kuesioner aktif di bawah ini untuk mengisi atau mengedit aspirasi karir Anda.
+          </p>
         </div>
-
-        <select
-          value={selectedPeriode?.periodeId || ''}
-          onChange={(e) => {
-            const found = periodes.find((p) => p.periodeId === e.target.value);
-            if (found) selectPeriode(found);
-          }}
-          className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none bg-white min-w-[240px]"
-        >
-          {periodes.map((p) => (
-            <option key={p.periodeId} value={p.periodeId}>
-              {p.namaPeriode}
-            </option>
-          ))}
-        </select>
       </div>
 
-      {/* Periode Banner Status */}
-      {selectedPeriode && (
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white shadow-lg space-y-2 border border-slate-800">
-          <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              <Calendar className="w-3 h-3" />
-              <span>Status: {selectedPeriode.status}</span>
-            </span>
-            {isSubmitted && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                <CheckCircle2 className="w-3 h-3 text-indigo-400" />
-                <span>Sudah Mengisi</span>
+      {periodes.length === 0 ? (
+        /* Empty State */
+        <div className="p-12 text-center bg-white rounded-3xl border border-slate-200/80 shadow-xs max-w-lg mx-auto">
+          <FileCheck2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-base font-extrabold text-slate-800">
+            Belum ada periode Career Path untuk Anda
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+            Saat ini tidak ada periode pengisian kuesioner career path aktif yang menyasar akun Anda. Silakan periksa kembali di kemudian hari.
+          </p>
+        </div>
+      ) : !selectedPeriode ? (
+        /* List of Periods */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {periodes.map((p) => (
+            <div
+              key={p.periodeId}
+              onClick={() => handleOpenPeriode(p)}
+              className="p-6 rounded-2xl bg-white border border-slate-200/80 hover:border-indigo-400 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-4 group"
+            >
+              <div className="flex items-start justify-between">
+                <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  {p.status}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400">
+                  Target: {p.targetType}
+                </span>
+              </div>
+
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                  {p.namaPeriode}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">ID Periode: {p.periodeId}</p>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-600">
+                <span>Buka Kuesioner</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* Questionnaire Filling Screen */
+        <div className="space-y-6">
+          {/* Back button and status bar */}
+          <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <button
+              onClick={() => setSelectedPeriode(null)}
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+            >
+              ← Kembali ke Daftar Periode
+            </button>
+            {existingAnswer?.status === 'Sudah Mengisi' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Anda Sudah Pernah Mengisi Kuesioner Ini
               </span>
             )}
           </div>
-          <h2 className="text-lg md:text-xl font-black">{selectedPeriode.namaPeriode}</h2>
-          <p className="text-xs text-slate-300">
-            NIP: {user?.nip} • Ditujukan untuk:{' '}
-            {selectedPeriode.targetType === 'Semua' ? 'Seluruh Pegawai' : 'Pegawai Pilihan'}
-          </p>
-        </div>
-      )}
 
-      {/* Questions Renderer Form */}
-      {questions.length === 0 ? (
-        <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs font-bold text-slate-400">
-          Belum ada pertanyaan pada periode kuesioner ini.
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <QuestionRenderer
-            questions={questions}
-            answers={answers}
-            onAnswerChange={handleAnswerChange}
-          />
-
-          <div className="p-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-            <p className="text-xs font-semibold text-slate-500">
-              {isSubmitted
-                ? 'Anda dapat memperbarui jawaban kuesioner kapan saja selama periode aktif.'
-                : 'Pastikan seluruh pertanyaan wajib (*) telah terisi sebelum mengirim.'}
+          <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-lg">
+            <h3 className="text-lg font-black">{selectedPeriode.namaPeriode}</h3>
+            <p className="text-xs text-slate-300 mt-1">
+              Silakan isi seluruh pertanyaan di bawah ini secara jujur dan objektif.
             </p>
-
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="px-6 py-3 rounded-xl font-extrabold text-xs text-white bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 shadow-md shadow-indigo-600/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-            >
-              <Send className="w-4 h-4" />
-              <span>{isSaving ? 'Menyimpan...' : isSubmitted ? 'Perbarui Jawaban' : 'Kirim Kuesioner'}</span>
-            </button>
           </div>
-        </form>
+
+          {questions.length === 0 ? (
+            <div className="p-8 text-center bg-white rounded-2xl border border-slate-200">
+              <p className="text-sm font-bold text-slate-600">
+                Belum ada daftar pertanyaan pada periode ini.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {questions.map((q, idx) => (
+                <QuestionRenderer
+                  key={idx}
+                  question={q}
+                  index={idx}
+                  value={formData[idx.toString()] || (q.tipeSoal === 'Checkbox' ? [] : '')}
+                  onChange={(val) => {
+                    setFormData({ ...formData, [idx.toString()]: val });
+                    setErrors({ ...errors, [idx.toString()]: '' });
+                  }}
+                  error={errors[idx.toString()]}
+                />
+              ))}
+
+              <div className="p-5 bg-white rounded-2xl border border-slate-200 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-violet-600 to-pink-600 text-white font-extrabold text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {submitting ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>{existingAnswer ? 'Perbarui Jawaban' : 'Kirim Jawaban'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       )}
     </div>
   );

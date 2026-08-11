@@ -1,43 +1,54 @@
 import React from 'react';
-import { CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+
+export type ToastType = 'success' | 'error' | 'info';
 
 export interface ToastMessage {
-  type: 'success' | 'error' | 'info';
+  id: string;
+  type: ToastType;
   text: string;
 }
 
 interface ToastProps {
-  toast: ToastMessage | null;
-  onClose: () => void;
+  toasts: ToastMessage[];
+  onDismiss: (id: string) => void;
 }
 
-export const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
-  if (!toast) return null;
-
-  const isSuccess = toast.type === 'success';
+export const ToastContainer: React.FC<ToastProps> = ({ toasts, onDismiss }) => {
+  if (!toasts.length) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
-      <div
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border backdrop-blur-md ${
-          isSuccess
-            ? 'bg-emerald-900/90 text-white border-emerald-500/40'
-            : 'bg-rose-900/90 text-white border-rose-500/40'
-        }`}
-      >
-        {isSuccess ? (
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-        ) : (
-          <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
-        )}
-        <span className="text-xs md:text-sm font-semibold">{toast.text}</span>
-        <button
-          onClick={onClose}
-          className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+    <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-3 max-w-md w-full px-4 pointer-events-none">
+      {toasts.map((toast) => {
+        let bg = 'bg-slate-900 border-slate-700 text-white';
+        let icon = <Info className="w-5 h-5 text-indigo-400 shrink-0" />;
+
+        if (toast.type === 'success') {
+          bg = 'bg-emerald-950/90 border-emerald-500/50 text-emerald-100';
+          icon = <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />;
+        } else if (toast.type === 'error') {
+          bg = 'bg-rose-950/90 border-rose-500/50 text-rose-100';
+          icon = <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />;
+        }
+
+        return (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-start justify-between p-4 rounded-xl border shadow-xl transition-all duration-300 animate-slide-up ${bg}`}
+          >
+            <div className="flex items-start gap-3">
+              {icon}
+              <p className="text-sm font-medium leading-relaxed">{toast.text}</p>
+            </div>
+            <button
+              onClick={() => onDismiss(toast.id)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors ml-2"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 };
